@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101110">
+  <title>Afterhours — Music for the in-between</title>
+  <!-- Run: open index.html directly, or use `python3 -m http.server 8000` and visit http://localhost:8000.
+       Audio, artwork, fonts, and CDN assets require an internet connection. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#101110', panel: '#181a18', line: '#292c29', muted: '#92978f',
+            lime: '#c7f36b', paper: '#f1f2eb', coral: '#ff765e'
+          },
+          fontFamily: {
+            sans: ['DM Sans', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { background: #101110; color: #f1f2eb; }
+    button, input { font: inherit; }
+    button { -webkit-tap-highlight-color: transparent; }
+    .app-scroll { scrollbar-width: thin; scrollbar-color: #373b36 transparent; }
+    .app-scroll::-webkit-scrollbar { width: 8px; }
+    .app-scroll::-webkit-scrollbar-thumb { background: #373b36; border-radius: 8px; }
+    .range-control { appearance: none; height: 4px; border-radius: 999px; background: #41443f; cursor: pointer; }
+    .range-control::-webkit-slider-thumb { appearance: none; width: 11px; height: 11px; border-radius: 50%; background: #c7f36b; }
+    .range-control::-moz-range-thumb { width: 11px; height: 11px; border: 0; border-radius: 50%; background: #c7f36b; }
+    .range-control:hover::-webkit-slider-thumb { box-shadow: 0 0 0 4px #c7f36b33; }
+    .track-row { animation: enter .35s ease both; }
+    @keyframes enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .nav-active { color: #c7f36b; background: #c7f36b12; }
+    .equalizer span { width: 2px; border-radius: 2px; background: #c7f36b; animation: bounce .65s ease-in-out infinite alternate; }
+    .equalizer span:nth-child(2) { animation-delay: .2s; }
+    .equalizer span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { from { height: 4px; } to { height: 13px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body class="min-h-screen overflow-hidden font-sans antialiased selection:bg-lime selection:text-ink">
+  <div class="flex h-[100dvh] min-h-[560px] flex-col md:flex-row">
+    <aside class="hidden w-[232px] shrink-0 flex-col border-r border-line bg-ink px-5 pb-32 pt-7 md:flex">
+      <a href="#home" class="mb-10 flex items-center gap-3 px-2" aria-label="Afterhours home">
+        <span class="grid h-9 w-9 place-items-center rounded-xl bg-lime text-ink"><i data-lucide="audio-lines" class="h-5 w-5"></i></span>
+        <span class="font-display text-[21px] font-bold tracking-tight">afterhours<span class="text-lime">.</span></span>
+      </a>
+      <p class="mb-3 px-3 text-[10px] font-bold uppercase tracking-[.19em] text-muted">Discover</p>
+      <nav class="space-y-1" aria-label="Main navigation">
+        <button data-view="home" class="nav-item nav-active flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition hover:bg-white/5"><i data-lucide="house" class="h-[18px] w-[18px]"></i>Home</button>
+        <button data-view="search" class="nav-item flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-muted transition hover:bg-white/5 hover:text-paper"><i data-lucide="search" class="h-[18px] w-[18px]"></i>Search</button>
+        <button data-view="library" class="nav-item flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-muted transition hover:bg-white/5 hover:text-paper"><i data-lucide="library" class="h-[18px] w-[18px]"></i>Your library</button>
+      </nav>
+      <div class="mb-3 mt-9 flex items-center justify-between px-3">
+        <p class="text-[10px] font-bold uppercase tracking-[.19em] text-muted">Your playlists</p>
+        <button id="add-playlist" class="rounded p-1 text-muted transition hover:bg-white/10 hover:text-paper" title="Create playlist" aria-label="Create playlist"><i data-lucide="plus" class="h-4 w-4"></i></button>
+      </div>
+      <nav id="playlist-nav" class="space-y-1" aria-label="Playlists">
+        <button class="playlist-link flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-muted transition hover:bg-white/5 hover:text-paper"><i data-lucide="disc-3" class="h-[18px] w-[18px]"></i>Late night drive</button>
+        <button class="playlist-link flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-muted transition hover:bg-white/5 hover:text-paper"><i data-lucide="heart" class="h-[18px] w-[18px]"></i>Soft focus</button>
+        <button class="playlist-link flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-muted transition hover:bg-white/5 hover:text-paper"><i data-lucide="sun" class="h-[18px] w-[18px]"></i>Sunday mornings</button>
+      </nav>
+      <div class="mt-auto rounded-xl border border-line bg-panel p-4">
+        <div class="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-lime/10 text-lime"><i data-lucide="headphones" class="h-4 w-4"></i></div>
+        <p class="text-sm font-semibold">Make it yours</p>
+        <p class="mt-1 text-xs leading-relaxed text-muted">Your next favorite is just around the corner.</p>
+        <button id="mix-button" class="mt-3 text-xs font-bold text-lime hover:text-white">Start listening <span aria-hidden="true">→</span></button>
+      </div>
+    </aside>
+
+    <main id="main-content" class="app-scroll min-w-0 flex-1 overflow-y-auto pb-36 md:pb-32">
+      <header class="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-white/[.04] bg-ink/90 px-4 py-3 backdrop-blur-xl sm:px-7 md:px-10 md:py-5">
+        <div class="flex items-center gap-2">
+          <button id="back-button" class="grid h-8 w-8 place-items-center rounded-full bg-white/[.06] text-paper transition hover:bg-white/[.12]" aria-label="Go back"><i data-lucide="chevron-left" class="h-4 w-4"></i></button>
+          <button id="forward-button" class="hidden h-8 w-8 place-items-center rounded-full bg-white/[.06] text-muted transition hover:bg-white/[.12] hover:text-paper sm:grid" aria-label="Go forward"><i data-lucide="chevron-right" class="h-4 w-4"></i></button>
+        </div>
+        <form id="search-form" class="flex w-full max-w-[470px] items-center gap-2">
+          <label class="flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-full border border-line bg-panel px-4 transition focus-within:border-lime/60">
+          <i data-lucide="search" class="h-4 w-4 shrink-0 text-muted"></i>
+          <input id="search-input" type="search" placeholder="What do you want to play?" autocomplete="off" class="w-full min-w-0 bg-transparent text-sm text-paper outline-none placeholder:text-muted/80">
+          <kbd class="hidden rounded border border-line px-1.5 py-0.5 text-[10px] text-muted sm:inline">/</kbd>
+          </label>
+          <button type="submit" aria-label="Search music and videos" class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-lime px-3 text-xs font-bold text-ink transition hover:bg-white sm:px-4"><i data-lucide="search" class="h-3.5 w-3.5"></i><span class="hidden sm:inline">Search</span></button>
+        </form>
+        <button class="flex shrink-0 items-center gap-2 rounded-full border border-line py-1 pl-1 pr-3 text-xs font-semibold transition hover:bg-white/[.06]" aria-label="Your profile">
+          <span class="grid h-7 w-7 place-items-center rounded-full bg-[#d48565] font-display text-[11px] font-bold text-ink">A</span><span class="hidden sm:inline">user</span>
+        </button>
+      </header>
+
+      <div class="mx-auto max-w-[1440px] px-4 pb-12 pt-6 sm:px-7 md:px-10 md:pt-8">
+        <section id="video-search-section" class="mb-8 hidden" aria-labelledby="video-search-heading">
+          <div class="mb-4"><p class="mb-1 text-[10px] font-bold uppercase tracking-[.18em] text-muted">Licensed video</p><h2 id="video-search-heading" class="font-display text-xl font-semibold">Related videos</h2></div>
+          <video id="video-player" class="mb-3 hidden aspect-video max-h-[480px] w-full bg-black" controls playsinline preload="metadata"></video>
+          <p id="video-search-status" class="mb-3 text-xs text-muted" aria-live="polite"></p>
+          <div id="video-result-list" class="space-y-1" aria-live="polite"></div>
+        </section>
+        <section aria-labelledby="tracks-heading" class="mb-9">
+          <div class="mb-3 flex items-end justify-between"><div><p class="mb-1 text-[10px] font-bold uppercase tracking-[.18em] text-muted">A good place to start</p><h2 id="tracks-heading" class="font-display text-xl font-semibold">Trending right now</h2></div><button id="clear-search" class="hidden text-xs font-semibold text-lime hover:text-white">Clear search</button></div>
+          <div class="mb-2 grid grid-cols-[30px_minmax(0,1fr)_50px] items-center gap-3 border-b border-line px-2 pb-2 text-[10px] font-bold uppercase tracking-[.14em] text-muted sm:grid-cols-[34px_minmax(0,1fr)_minmax(100px,.7fr)_52px]">
+            <span class="text-center">#</span><span>Title</span><span class="hidden sm:block">Collection</span><span class="text-right"><i data-lucide="clock-3" class="ml-auto h-3.5 w-3.5"></i></span>
+          </div>
+          <p id="search-status" class="hidden mb-2 text-xs text-muted" aria-live="polite"></p>
+          <div id="track-list" class="space-y-0.5" aria-live="polite"></div>
+          <p id="empty-state" class="hidden py-10 text-center text-sm text-muted">No tracks found. Try another search.</p>
+        </section>
+        <section id="home-view">
+          <div class="mb-6 flex items-end justify-between">
+            <div><p class="mb-1 text-xs font-medium text-muted">FRIDAY, OCTOBER 3</p><h1 class="font-display text-[28px] font-semibold leading-tight tracking-tight sm:text-[34px]">Good evening<span class="text-lime">.</span></h1></div>
+            <button id="shuffle-button" class="hidden items-center gap-2 rounded-full bg-lime px-4 py-2.5 text-xs font-bold text-ink transition hover:bg-white sm:flex"><i data-lucide="shuffle" class="h-4 w-4"></i>Shuffle play</button>
+          </div>
+
+          <article class="group relative mb-8 min-h-[220px] overflow-hidden rounded-2xl border border-white/[.08] bg-[#252722] sm:min-h-[250px]">
+            <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1600&q=85" alt="Crowd at a live music show" class="absolute inset-0 h-full w-full object-cover object-center opacity-45 transition duration-700 group-hover:scale-[1.02]">
+            <div class="absolute inset-0 bg-gradient-to-r from-[#111310] via-[#111310]/80 to-[#111310]/10"></div>
+            <div class="relative flex min-h-[220px] flex-col items-start justify-center p-6 sm:min-h-[250px] sm:p-10">
+              <span class="mb-3 inline-flex items-center gap-1.5 rounded-full border border-lime/30 bg-ink/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.14em] text-lime"><span class="h-1.5 w-1.5 rounded-full bg-lime"></span>Curated for you</span>
+              <p class="mb-1 text-xs font-semibold uppercase tracking-[.17em] text-paper/70">The after-hours edit</p>
+              <h2 class="max-w-md font-display text-3xl font-semibold leading-tight tracking-tight text-paper sm:text-[42px]">Stay a little<br class="sm:hidden"> longer.</h2>
+              <p class="mt-2 max-w-sm text-sm text-paper/70">A softer kind of soundtrack for wherever tonight takes you.</p>
+              <button id="featured-play" class="mt-5 inline-flex items-center gap-2 rounded-full bg-lime px-5 py-2.5 text-sm font-bold text-ink transition hover:scale-[1.03] hover:bg-white"><i data-lucide="play" class="h-4 w-4 fill-current"></i>Play the mix</button>
+            </div>
+          </article>
+
+          <section aria-labelledby="made-for-you-heading" class="mb-9">
+            <div class="mb-4 flex items-end justify-between"><div><p class="mb-1 text-[10px] font-bold uppercase tracking-[.18em] text-muted">A little bit of everything</p><h2 id="made-for-you-heading" class="font-display text-xl font-semibold">Made for your mood</h2></div><button class="text-xs font-semibold text-muted transition hover:text-lime">See all <span aria-hidden="true">→</span></button></div>
+            <div id="album-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"></div>
+          </section>
+
+          <section aria-labelledby="artists-heading" class="pb-4">
+            <div class="mb-4"><p class="mb-1 text-[10px] font-bold uppercase tracking-[.18em] text-muted">Keep the discovery going</p><h2 id="artists-heading" class="font-display text-xl font-semibold">Artists to spend time with</h2></div>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" id="artist-grid"></div>
+          </section>
+        </section>
+      </div>
+    </main>
+
+    <nav class="fixed inset-x-0 bottom-[76px] z-30 flex justify-around border-t border-line bg-ink/95 px-2 py-2 backdrop-blur-xl md:hidden" aria-label="Mobile navigation">
+      <button data-view="home" class="nav-item nav-active flex min-w-[70px] flex-col items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] font-semibold"><i data-lucide="house" class="h-[18px] w-[18px]"></i>Home</button>
+      <button data-view="search" class="nav-item flex min-w-[70px] flex-col items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] font-medium text-muted"><i data-lucide="search" class="h-[18px] w-[18px]"></i>Search</button>
+      <button data-view="library" class="nav-item flex min-w-[70px] flex-col items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] font-medium text-muted"><i data-lucide="library" class="h-[18px] w-[18px]"></i>Library</button>
+    </nav>
+
+    <footer class="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-[#171917]/95 backdrop-blur-xl">
+      <div class="mx-auto grid min-h-[76px] max-w-[1600px] grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 sm:px-5 md:grid-cols-[1fr_1.2fr_1fr] md:px-7">
+        <div class="flex min-w-0 items-center gap-3">
+          <img id="player-art" src="https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=160&q=80" alt="" class="h-11 w-11 shrink-0 rounded-md object-cover sm:h-12 sm:w-12">
+          <div class="min-w-0"><p id="player-title" class="truncate text-xs font-semibold sm:text-sm">Night Drive</p><p id="player-artist" class="mt-0.5 truncate text-[10px] text-muted sm:text-xs">Luna Grey</p></div>
+          <button id="like-button" class="ml-1 hidden text-muted transition hover:text-lime sm:block" aria-label="Save to liked songs" title="Save to liked songs"><i data-lucide="heart" class="h-4 w-4"></i></button>
+        </div>
+        <div class="flex flex-col items-center gap-1.5 md:gap-2">
+          <div class="flex items-center gap-3 sm:gap-5">
+            <button id="repeat-button" class="hidden text-muted transition hover:text-paper sm:block" aria-label="Repeat off" title="Repeat"><i data-lucide="repeat" class="h-4 w-4"></i></button>
+            <button id="previous-button" class="text-muted transition hover:scale-105 hover:text-paper" aria-label="Previous track"><i data-lucide="skip-back" class="h-[18px] w-[18px] fill-current"></i></button>
+            <button id="play-button" class="grid h-9 w-9 place-items-center rounded-full bg-paper text-ink transition hover:scale-105 hover:bg-lime" aria-label="Play"><i id="play-icon" data-lucide="play" class="ml-0.5 h-4 w-4 fill-current"></i></button>
+            <button id="next-button" class="text-muted transition hover:scale-105 hover:text-paper" aria-label="Next track"><i data-lucide="skip-forward" class="h-[18px] w-[18px] fill-current"></i></button>
+            <button id="mobile-volume-button" class="grid h-8 w-8 place-items-center rounded-full text-muted transition hover:bg-white/10 hover:text-paper md:hidden" aria-label="Adjust volume" aria-expanded="false"><i data-lucide="volume-2" class="h-4 w-4"></i></button>
+            <span class="hidden w-4 sm:block"></span>
+          </div>
+          <div class="hidden w-full max-w-[490px] items-center gap-2 sm:flex">
+            <span id="current-time" class="w-8 text-right text-[10px] tabular-nums text-muted">0:00</span>
+            <input id="progress" type="range" min="0" max="100" value="0" class="range-control w-full" aria-label="Seek through track">
+            <span id="duration" class="w-8 text-[10px] tabular-nums text-muted">0:00</span>
+          </div>
+        </div>
+        <div class="hidden items-center justify-end gap-3 md:flex">
+          <i data-lucide="volume-2" class="h-4 w-4 text-muted"></i>
+          <input id="volume" type="range" min="0" max="1" step="0.01" value="0.72" class="range-control w-24" aria-label="Volume">
+        </div>
+      </div>
+      <div class="relative h-3 md:hidden">
+        <span class="absolute inset-x-0 top-[5px] h-[3px] bg-line"></span>
+        <span id="mobile-progress-fill" class="absolute left-0 top-[5px] h-[3px] w-0 bg-lime"></span>
+        <input id="mobile-progress" type="range" min="0" max="100" value="0" class="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label="Seek through track">
+      </div>
+    </footer>
+  </div>
+
+  <div id="mobile-volume-popover" class="fixed bottom-[132px] right-3 z-50 hidden items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3 shadow-2xl md:hidden">
+    <i data-lucide="volume-2" class="h-4 w-4 text-muted"></i>
+    <input id="mobile-volume" type="range" min="0" max="1" step="0.01" value="0.72" class="range-control w-28" aria-label="Volume">
+  </div>
+
+  <audio id="audio" preload="metadata"></audio>
+
+  <script>
+    // Demo audio is streamed from SoundHelix; each track is a royalty-free sample.
+    const tracks = [
+      { title: 'Night Drive', artist: 'Luna Grey', album: 'After the Rain', duration: '6:13', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', art: 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=600&q=85' },
+      { title: 'Open Water', artist: 'The Slow Coast', album: 'Blue Hour', duration: '5:02', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', art: 'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=600&q=85' },
+      { title: 'Sunroom', artist: 'Milo June', album: 'Soft Focus', duration: '5:31', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', art: 'https://images.unsplash.com/photo-1497250681960-ef046c08a56e?auto=format&fit=crop&w=600&q=85' },
+      { title: 'Velvet Sky', artist: 'Nora Sol', album: 'Small Hours', duration: '4:48', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', art: 'https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?auto=format&fit=crop&w=600&q=85' },
+      { title: 'Somewhere Slow', artist: 'Low Season', album: 'Between Places', duration: '5:44', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', art: 'https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=600&q=85' }
+    ];
+
+    const albums = [
+      { title: 'After the Rain', note: 'A playlist for the long way home', art: tracks[0].art, track: 0, tint: 'from-[#233235]' },
+      { title: 'Blue Hour', note: 'Low lights, open windows', art: tracks[1].art, track: 1, tint: 'from-[#173543]' },
+      { title: 'Soft Focus', note: 'Find your own little quiet', art: tracks[2].art, track: 2, tint: 'from-[#314031]' },
+      { title: 'Small Hours', note: 'For the beautifully awake', art: tracks[3].art, track: 3, tint: 'from-[#49352c]' },
+      { title: 'Between Places', note: 'Somewhere in the in-between', art: tracks[4].art, track: 4, tint: 'from-[#27383a]' }
+    ];
+
+    const artists = [
+      { name: 'Luna Grey', genre: 'Dream pop', art: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=85' },
+      { name: 'The Slow Coast', genre: 'Indie folk', art: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=85' },
+      { name: 'Milo June', genre: 'Bedroom pop', art: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=85' },
+      { name: 'Nora Sol', genre: 'Alternative', art: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=400&q=85' },
+      { name: 'Low Season', genre: 'Downtempo', art: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=85' }
+    ];
+
+    let audio = document.querySelector('#audio');
+    let standbyAudio = new Audio();
+    standbyAudio.preload = 'auto';
+    const trackList = document.querySelector('#track-list');
+    const searchInput = document.querySelector('#search-input');
+    let currentTrack = 0;
+    let isPlaying = false;
+    let repeat = false;
+    let liked = false;
+    let playbackQueue = tracks;
+    let searchResults = null;
+    let searchController = null;
+    let searchTimer = null;
+    let searchMessage = '';
+    let videoSearchController = null;
+    let videoSearchResults = [];
+    let activeStreamId = 0;
+    let streamController = null;
+    let streamObjectUrl = '';
+    let standbyTrackIndex = -1;
+    let standbyQueue = null;
+
+    function formatTime(seconds) {
+      if (!Number.isFinite(seconds)) return '0:00';
+      const minutes = Math.floor(seconds / 60);
+      return `${minutes}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[character]);
+    }
+
+    function renderAlbums() {
+      document.querySelector('#album-grid').innerHTML = albums.map((album) => `
+        <button data-track="${album.track}" class="album-card group min-w-0 rounded-xl border border-white/[.05] bg-panel p-2.5 text-left transition hover:-translate-y-0.5 hover:border-white/10 hover:bg-[#202320] sm:p-3">
+          <span class="relative mb-3 block aspect-square overflow-hidden rounded-lg bg-gradient-to-br ${album.tint} to-ink">
+            <img src="${album.art}" alt="" loading="lazy" class="h-full w-full object-cover transition duration-500 group-hover:scale-105">
+            <span class="album-play absolute bottom-2 right-2 grid h-9 w-9 translate-y-2 place-items-center rounded-full bg-lime text-ink opacity-0 shadow-xl transition group-hover:translate-y-0 group-hover:opacity-100"><i data-lucide="play" class="ml-0.5 h-4 w-4 fill-current"></i></span>
+          </span>
+          <span class="block truncate text-xs font-semibold sm:text-sm">${album.title}</span>
+          <span class="mt-1 block truncate text-[10px] text-muted sm:text-xs">${album.note}</span>
+        </button>`).join('');
+    }
+
+    function renderArtists() {
+      document.querySelector('#artist-grid').innerHTML = artists.map((artist, index) => `
+        <button data-track="${index}" class="artist-card group flex min-w-0 items-center gap-2.5 rounded-xl border border-white/[.05] bg-panel p-2 text-left transition hover:border-white/10 hover:bg-[#202320] sm:flex-col sm:items-start sm:p-3">
+          <img src="${artist.art}" alt="" loading="lazy" class="h-11 w-11 shrink-0 rounded-full object-cover transition group-hover:ring-2 group-hover:ring-lime/70 sm:mb-1 sm:h-auto sm:w-full sm:aspect-square">
+          <span class="min-w-0"><span class="block truncate text-xs font-semibold sm:text-sm">${artist.name}</span><span class="mt-0.5 block truncate text-[10px] text-muted sm:text-xs">${artist.genre}</span></span>
+        </button>`).join('');
+    }
+
+    function renderTracks() {
+      const query = searchInput.value.trim().toLowerCase();
+      const onlineSearch = searchResults !== null;
+      document.querySelector('#home-view').classList.toggle('hidden', onlineSearch);
+      document.querySelector('#tracks-heading').textContent = onlineSearch ? 'Music results' : 'Trending right now';
+      const visibleTracks = onlineSearch
+        ? searchResults.map((track, index) => ({ ...track, index }))
+        : tracks.map((track, index) => ({ ...track, index }))
+          .filter((track) => `${track.title} ${track.artist} ${track.album}`.toLowerCase().includes(query));
+      trackList.innerHTML = visibleTracks.map((track) => {
+        const active = playbackQueue === (onlineSearch ? searchResults : tracks) && track.index === currentTrack;
+        return `<button data-track="${track.index}" class="track-row group grid w-full grid-cols-[30px_minmax(0,1fr)_50px] items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/[.06] sm:grid-cols-[34px_minmax(0,1fr)_minmax(100px,.7fr)_52px] ${active ? 'bg-white/[.06]' : ''}">
+          <span class="flex justify-center text-xs tabular-nums ${active ? 'text-lime' : 'text-muted'}">${active && isPlaying ? '<span class="equalizer flex h-4 items-end gap-[2px]" aria-label="Playing"><span></span><span></span><span></span></span>' : String(track.index + 1).padStart(2, '0')}</span>
+          <span class="flex min-w-0 items-center gap-3"><img src="${escapeHtml(track.art)}" alt="" loading="lazy" class="h-10 w-10 shrink-0 rounded-md object-cover"><span class="min-w-0"><span class="block truncate text-xs font-semibold ${active ? 'text-lime' : 'text-paper'}">${escapeHtml(track.title)}</span><span class="mt-0.5 block truncate text-[10px] text-muted">${escapeHtml(track.artist)}</span></span></span>
+          <span class="hidden truncate text-xs text-muted sm:block">${escapeHtml(track.album)}</span><span class="text-right text-xs tabular-nums text-muted">${escapeHtml(track.duration)}</span>
+        </button>`;
+      }).join('');
+      const status = document.querySelector('#search-status');
+      status.textContent = searchMessage;
+      status.classList.toggle('hidden', !onlineSearch || !searchMessage);
+      const emptyState = document.querySelector('#empty-state');
+      emptyState.textContent = onlineSearch ? 'No full-length licensed MP3s found. Try another song or artist.' : 'No tracks found. Try another search.';
+      emptyState.classList.toggle('hidden', visibleTracks.length !== 0 || Boolean(searchMessage));
+      document.querySelector('#clear-search').classList.toggle('hidden', !query);
+      lucide.createIcons();
+    }
+
+    function parseCatalogDuration(value) {
+      if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+      const parts = String(value || '').trim().split(':').map(Number);
+      if (!parts.length || parts.some((part) => !Number.isFinite(part))) return 0;
+      return parts.reduce((total, part) => total * 60 + part, 0);
+    }
+
+    function readableFileName(fileName) {
+      return fileName.split('/').pop().replace(/\.mp3$/i, '').replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+    }
+
+    function searchOnline(value) {
+      clearTimeout(searchTimer);
+      if (searchController) searchController.abort();
+      const query = value.trim();
+      if (!query) {
+        searchResults = null;
+        searchMessage = '';
+        renderTracks();
+        return;
+      }
+
+      searchResults = [];
+      searchMessage = 'Searching full-length, openly licensed recordings…';
+      renderTracks();
+      searchTimer = setTimeout(async () => {
+        const controller = new AbortController();
+        searchController = controller;
+        try {
+          const safeTerms = query.split(/\s+/).map((term) => term.replace(/[+&|!(){}\[\]^"~*?:\\/]/g, '')).filter(Boolean);
+          if (!safeTerms.length) throw new Error('Enter a song or artist name.');
+          const catalogTerms = safeTerms.join(' AND ');
+          const catalogQuery = `mediatype:audio AND (licenseurl:"http://creativecommons.org/publicdomain/mark/1.0/" OR licenseurl:"http://creativecommons.org/licenses/by/4.0/" OR licenseurl:"https://creativecommons.org/licenses/by/4.0/" OR licenseurl:"http://creativecommons.org/licenses/by-sa/4.0/" OR licenseurl:"https://creativecommons.org/licenses/by-sa/4.0/") AND (title:(${catalogTerms}) OR creator:(${catalogTerms}))`;
+          const params = new URLSearchParams({ q: catalogQuery, rows: '20', page: '1', output: 'json' });
+          for (const field of ['identifier', 'title', 'creator', 'licenseurl']) params.append('fl[]', field);
+          const response = await fetch(`https://archive.org/advancedsearch.php?${params}`, { signal: controller.signal });
+          if (!response.ok) throw new Error(`Search failed with status ${response.status}`);
+          const data = await response.json();
+          if (searchController !== controller) return;
+          const records = data.response?.docs || [];
+          const recordFiles = await Promise.all(records.map(async (record) => {
+            const metadataResponse = await fetch(`https://archive.org/metadata/${encodeURIComponent(record.identifier)}`, { signal: controller.signal });
+            if (!metadataResponse.ok) return [];
+            const metadata = await metadataResponse.json();
+            const license = metadata.metadata?.licenseurl || record.licenseurl || '';
+            if (!/creativecommons\.org\/(publicdomain\/mark\/1\.0|licenses\/by(-sa)?\/4\.0)/.test(license)) return [];
+            return (metadata.files || []).filter((file) => file.name?.toLowerCase().endsWith('.mp3'))
+              .map((file) => {
+                const seconds = parseCatalogDuration(file.length);
+                if (!seconds) return null;
+                const filePath = file.name.split('/').map(encodeURIComponent).join('/');
+                const mediaBase = metadata.d1 && metadata.dir
+                  ? `https://${metadata.d1}${metadata.dir}`
+                  : `https://archive.org/download/${encodeURIComponent(record.identifier)}`;
+                return {
+                  title: readableFileName(file.name) || metadata.metadata?.title || record.title || 'Untitled',
+                  artist: metadata.metadata?.creator || record.creator || 'Unknown artist',
+                  album: metadata.metadata?.title || record.title || 'Internet Archive recording',
+                  duration: formatTime(seconds),
+                  src: `${mediaBase}/${filePath}`,
+                  art: `https://archive.org/services/img/${encodeURIComponent(record.identifier)}`,
+                  archiveUrl: `https://archive.org/details/${encodeURIComponent(record.identifier)}`,
+                  license,
+                  seconds,
+                  fileSize: Number(file.size)
+                };
+              }).filter(Boolean);
+          }));
+          if (searchController !== controller) return;
+          searchResults = recordFiles.flat().slice(0, 30);
+          searchMessage = searchResults.length
+            ? `${searchResults.length} full-length MP3 tracks. Durations are from file metadata; recordings are marked public domain or CC BY/CC BY-SA on Internet Archive.`
+            : '';
+          renderTracks();
+        } catch (error) {
+          if (error.name === 'AbortError' || searchController !== controller) return;
+          searchResults = [];
+          searchMessage = 'Full-track search is unavailable. Check your connection and try again.';
+          renderTracks();
+        }
+      }, 300);
+    }
+
+    async function searchVideos(value) {
+      if (videoSearchController) videoSearchController.abort();
+      const query = value.trim();
+      const section = document.querySelector('#video-search-section');
+      const status = document.querySelector('#video-search-status');
+      const video = document.querySelector('#video-player');
+      const resultList = document.querySelector('#video-result-list');
+      if (!query) {
+        videoSearchResults = [];
+        section.classList.add('hidden');
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        resultList.innerHTML = '';
+        return;
+      }
+
+      const controller = new AbortController();
+      videoSearchController = controller;
+      videoSearchResults = [];
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      video.classList.add('hidden');
+      section.classList.remove('hidden');
+      resultList.innerHTML = '';
+      status.textContent = 'Searching licensed videos…';
+      try {
+        const safeTerms = query.split(/\s+/).map((term) => term.replace(/[+&|!(){}\[\]^"~*?:\\/]/g, '')).filter(Boolean);
+        if (!safeTerms.length) throw new Error('Enter a song or artist name.');
+        const catalogTerms = safeTerms.join(' AND ');
+        const catalogQuery = `mediatype:movies AND (licenseurl:"http://creativecommons.org/publicdomain/mark/1.0/" OR licenseurl:"http://creativecommons.org/licenses/by/4.0/" OR licenseurl:"https://creativecommons.org/licenses/by/4.0/" OR licenseurl:"http://creativecommons.org/licenses/by-sa/4.0/" OR licenseurl:"https://creativecommons.org/licenses/by-sa/4.0/") AND (title:(${catalogTerms}) OR creator:(${catalogTerms}))`;
+        const params = new URLSearchParams({ q: catalogQuery, rows: '10', page: '1', output: 'json' });
+        for (const field of ['identifier', 'title', 'creator', 'licenseurl']) params.append('fl[]', field);
+        const response = await fetch(`https://archive.org/advancedsearch.php?${params}`, { signal: controller.signal });
+        if (!response.ok) throw new Error(`Search failed with status ${response.status}`);
+        const data = await response.json();
+        if (videoSearchController !== controller) return;
+        const records = data.response?.docs || [];
+        const videos = await Promise.all(records.map(async (record) => {
+          const metadataResponse = await fetch(`https://archive.org/metadata/${encodeURIComponent(record.identifier)}`, { signal: controller.signal });
+          if (!metadataResponse.ok) return [];
+          const metadata = await metadataResponse.json();
+          const license = metadata.metadata?.licenseurl || record.licenseurl || '';
+          if (!/creativecommons\.org\/(publicdomain\/mark\/1\.0|licenses\/by(-sa)?\/4\.0)/.test(license)) return [];
+          const mediaBase = metadata.d1 && metadata.dir
+            ? `https://${metadata.d1}${metadata.dir}`
+            : `https://archive.org/download/${encodeURIComponent(record.identifier)}`;
+          const file = (metadata.files || [])
+            .filter((item) => /\.(mp4|webm)$/i.test(item.name || '') && Number(item.size) > 0)
+            .sort((first, second) => {
+              const firstFormat = /\.mp4$/i.test(first.name) ? 0 : 1;
+              const secondFormat = /\.mp4$/i.test(second.name) ? 0 : 1;
+              const firstDerivative = /\.ia\.mp4$/i.test(first.name) ? 1 : 0;
+              const secondDerivative = /\.ia\.mp4$/i.test(second.name) ? 1 : 0;
+              return firstFormat - secondFormat || firstDerivative - secondDerivative;
+            })[0];
+          if (!file) return [];
+          return [{
+            title: metadata.metadata?.title || record.title || readableFileName(file.name) || 'Untitled video',
+            creator: metadata.metadata?.creator || record.creator || 'Internet Archive video',
+            src: `${mediaBase}/${file.name.split('/').map(encodeURIComponent).join('/')}`,
+            poster: `https://archive.org/services/img/${encodeURIComponent(record.identifier)}`,
+            license
+          }];
+        }));
+        if (videoSearchController !== controller) return;
+        videoSearchResults = videos.flat().slice(0, 12);
+        status.textContent = videoSearchResults.length
+          ? `${videoSearchResults.length} licensed video${videoSearchResults.length === 1 ? '' : 's'} found.`
+          : 'No licensed videos found for this search.';
+        resultList.innerHTML = videoSearchResults.map((item, index) => `
+          <button type="button" data-video-index="${index}" class="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/[.06]">
+            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white/[.08] text-lime"><i data-lucide="play" class="h-4 w-4 fill-current"></i></span>
+            <span class="min-w-0"><span class="block truncate text-xs font-semibold">${escapeHtml(item.title)}</span><span class="mt-0.5 block truncate text-[10px] text-muted">${escapeHtml(item.creator)}</span></span>
+          </button>`).join('');
+        lucide.createIcons();
+      } catch (error) {
+        if (error.name === 'AbortError' || videoSearchController !== controller) return;
+        status.textContent = 'Video search is unavailable. Check your connection and try again.';
+      }
+    }
+
+    function updatePlayer() {
+      const track = playbackQueue[currentTrack];
+      document.querySelector('#player-art').src = track.art;
+      document.querySelector('#player-title').textContent = track.title;
+      document.querySelector('#player-artist').textContent = track.artist;
+      document.querySelector('#play-button').setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+      document.querySelector('#play-icon').setAttribute('data-lucide', isPlaying ? 'pause' : 'play');
+      document.querySelector('#repeat-button').classList.toggle('text-lime', repeat);
+      document.querySelector('#repeat-button').setAttribute('aria-label', repeat ? 'Repeat on' : 'Repeat off');
+      renderTracks();
+      lucide.createIcons();
+    }
+
+    function appendMediaChunk(sourceBuffer, bytes) {
+      return new Promise((resolve, reject) => {
+        sourceBuffer.addEventListener('updateend', resolve, { once: true });
+        sourceBuffer.addEventListener('error', reject, { once: true });
+        sourceBuffer.appendBuffer(bytes);
+      });
+    }
+
+    async function streamArchiveTrack(track, mediaSource, signal, streamId) {
+      try {
+        await new Promise((resolve, reject) => {
+          if (mediaSource.readyState === 'open') resolve();
+          else {
+            mediaSource.addEventListener('sourceopen', resolve, { once: true });
+            mediaSource.addEventListener('error', reject, { once: true });
+          }
+        });
+        if (streamId !== activeStreamId) return;
+
+        mediaSource.duration = track.seconds;
+        const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+        const chunkSize = 256 * 1024;
+        let streamUrl = track.src;
+        for (let start = 0; start < track.fileSize; start += chunkSize) {
+          const end = Math.min(start + chunkSize, track.fileSize) - 1;
+          const response = await fetch(streamUrl, {
+            headers: { Range: `bytes=${start}-${end}` },
+            signal
+          });
+          if (!response.ok) throw new Error(`Audio request failed with status ${response.status}`);
+          streamUrl = response.url || streamUrl;
+          const bytes = await response.arrayBuffer();
+          if (streamId !== activeStreamId) return;
+          await appendMediaChunk(sourceBuffer, bytes);
+          if (response.status === 200) break;
+        }
+        if (streamId === activeStreamId && mediaSource.readyState === 'open') mediaSource.endOfStream();
+      } catch (error) {
+        if (error.name === 'AbortError' || streamId !== activeStreamId) return;
+        audio.pause();
+        isPlaying = false;
+        searchMessage = 'This recording could not be streamed. Try another result.';
+        updatePlayer();
+      }
+    }
+
+    function prepareNextTrack() {
+      standbyAudio.pause();
+      standbyAudio.removeAttribute('src');
+      standbyAudio.load();
+      standbyTrackIndex = -1;
+      standbyQueue = null;
+
+      const nextIndex = (currentTrack + 1) % playbackQueue.length;
+      const nextTrack = playbackQueue[nextIndex];
+      if (nextTrack.fileSize > 0) return;
+
+      standbyTrackIndex = nextIndex;
+      standbyQueue = playbackQueue;
+      standbyAudio.src = nextTrack.src;
+      standbyAudio.volume = audio.volume;
+      standbyAudio.load();
+    }
+
+    function advanceToStandby() {
+      const nextIndex = (currentTrack + 1) % playbackQueue.length;
+      if (standbyQueue !== playbackQueue || standbyTrackIndex !== nextIndex || standbyAudio.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        loadTrack(nextIndex);
+        return;
+      }
+
+      const finishedAudio = audio;
+      audio = standbyAudio;
+      standbyAudio = finishedAudio;
+      currentTrack = nextIndex;
+      isPlaying = true;
+      document.querySelector('#current-time').textContent = '0:00';
+      document.querySelector('#progress').value = 0;
+      document.querySelector('#mobile-progress').value = 0;
+      document.querySelector('#mobile-progress-fill').style.width = '0%';
+      document.querySelector('#duration').textContent = playbackQueue[currentTrack].duration;
+      updatePlayer();
+      audio.play().catch(() => loadTrack(currentTrack));
+      prepareNextTrack();
+    }
+
+    function loadTrack(index, autoplay = true, queue = playbackQueue) {
+      playbackQueue = queue;
+      currentTrack = (index + playbackQueue.length) % playbackQueue.length;
+      const track = playbackQueue[currentTrack];
+      const previousStreamUrl = streamObjectUrl;
+      if (streamController) streamController.abort();
+      streamController = null;
+      streamObjectUrl = '';
+      activeStreamId += 1;
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      audio.loop = repeat;
+      document.querySelector('#duration').textContent = track.duration;
+      document.querySelector('#current-time').textContent = '0:00';
+      document.querySelector('#progress').value = 0;
+      document.querySelector('#mobile-progress').value = 0;
+      document.querySelector('#mobile-progress-fill').style.width = '0%';
+      isPlaying = false;
+      if (track.fileSize > 0 && window.MediaSource?.isTypeSupported('audio/mpeg')) {
+        const streamId = activeStreamId;
+        const mediaSource = new MediaSource();
+        streamController = new AbortController();
+        streamObjectUrl = URL.createObjectURL(mediaSource);
+        audio.src = streamObjectUrl;
+        audio.load();
+        if (previousStreamUrl) URL.revokeObjectURL(previousStreamUrl);
+        updatePlayer();
+        if (autoplay) audio.play().catch(() => {
+          if (streamId !== activeStreamId) return;
+          isPlaying = false;
+          updatePlayer();
+        });
+        streamArchiveTrack(track, mediaSource, streamController.signal, streamId);
+        prepareNextTrack();
+        return;
+      }
+      audio.src = track.src;
+      audio.load();
+      if (previousStreamUrl) URL.revokeObjectURL(previousStreamUrl);
+      isPlaying = autoplay;
+      updatePlayer();
+      if (autoplay) audio.play().catch(() => {
+        isPlaying = false;
+        updatePlayer();
+      });
+      prepareNextTrack();
+    }
+
+    function togglePlayback() {
+      if (isPlaying) {
+        audio.pause();
+        isPlaying = false;
+        updatePlayer();
+      } else {
+        audio.play().then(() => {
+          isPlaying = true;
+          updatePlayer();
+        }).catch(() => {
+          document.querySelector('#player-title').textContent = 'Audio unavailable';
+        });
+      }
+    }
+
+    function setProgress(value) {
+      if (Number.isFinite(audio.duration)) audio.currentTime = (Number(value) / 100) * audio.duration;
+    }
+
+    renderAlbums();
+    renderArtists();
+    renderTracks();
+    updatePlayer();
+    audio.src = tracks[currentTrack].src;
+    audio.volume = Number(document.querySelector('#volume').value);
+    standbyAudio.volume = audio.volume;
+    prepareNextTrack();
+
+    document.querySelector('#play-button').addEventListener('click', togglePlayback);
+    document.querySelector('#next-button').addEventListener('click', () => loadTrack(currentTrack + 1));
+    document.querySelector('#previous-button').addEventListener('click', () => {
+      if (audio.currentTime > 3) audio.currentTime = 0;
+      else loadTrack(currentTrack - 1);
+    });
+    document.querySelector('#repeat-button').addEventListener('click', (event) => {
+      repeat = !repeat;
+      audio.loop = repeat;
+      event.currentTarget.classList.toggle('text-lime', repeat);
+      event.currentTarget.setAttribute('aria-label', repeat ? 'Repeat on' : 'Repeat off');
+    });
+    document.querySelectorAll('#volume, #mobile-volume').forEach((slider) => slider.addEventListener('input', (event) => {
+      audio.volume = Number(event.target.value);
+      standbyAudio.volume = audio.volume;
+      document.querySelector('#volume').value = event.target.value;
+      document.querySelector('#mobile-volume').value = event.target.value;
+    }));
+    document.querySelector('#mobile-volume-button').addEventListener('click', (event) => {
+      const popover = document.querySelector('#mobile-volume-popover');
+      const isOpen = !popover.classList.contains('hidden');
+      popover.classList.toggle('hidden', isOpen);
+      popover.classList.toggle('flex', !isOpen);
+      event.currentTarget.setAttribute('aria-expanded', String(!isOpen));
+    });
+    document.addEventListener('click', (event) => {
+      if (event.target.closest('#mobile-volume-button, #mobile-volume-popover')) return;
+      document.querySelector('#mobile-volume-popover').classList.add('hidden');
+      document.querySelector('#mobile-volume-popover').classList.remove('flex');
+      document.querySelector('#mobile-volume-button').setAttribute('aria-expanded', 'false');
+    });
+    document.querySelector('#progress').addEventListener('input', (event) => setProgress(event.target.value));
+    document.querySelector('#mobile-progress').addEventListener('input', (event) => setProgress(event.target.value));
+    function bindAudioEvents(deck) {
+      deck.addEventListener('timeupdate', () => {
+        if (deck !== audio || !Number.isFinite(deck.duration)) return;
+        const progress = (deck.currentTime / deck.duration) * 100;
+        document.querySelector('#progress').value = progress;
+        document.querySelector('#mobile-progress').value = progress;
+        document.querySelector('#mobile-progress-fill').style.width = `${progress}%`;
+        document.querySelector('#current-time').textContent = formatTime(deck.currentTime);
+        document.querySelector('#duration').textContent = formatTime(deck.duration);
+      });
+      deck.addEventListener('playing', () => {
+        if (deck !== audio) return;
+        isPlaying = true;
+        updatePlayer();
+      });
+      deck.addEventListener('pause', () => {
+        if (deck !== audio) return;
+        isPlaying = false;
+        updatePlayer();
+      });
+      deck.addEventListener('ended', () => {
+        if (deck === audio && !repeat) advanceToStandby();
+      });
+    }
+    bindAudioEvents(audio);
+    bindAudioEvents(standbyAudio);
+
+    document.querySelector('#search-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      searchOnline(searchInput.value);
+      searchVideos(searchInput.value);
+    });
+    document.querySelector('#clear-search').addEventListener('click', () => { searchInput.value = ''; searchOnline(''); searchVideos(''); searchInput.focus(); });
+    document.querySelector('#video-result-list').addEventListener('click', (event) => {
+      const item = event.target.closest('[data-video-index]');
+      if (!item) return;
+      const selected = videoSearchResults[Number(item.dataset.videoIndex)];
+      if (!selected) return;
+      const video = document.querySelector('#video-player');
+      video.src = selected.src;
+      video.poster = selected.poster;
+      video.classList.remove('hidden');
+      video.load();
+      video.play().catch(() => {});
+    });
+    document.querySelector('#track-list').addEventListener('click', (event) => {
+      const row = event.target.closest('[data-track]');
+      if (row) loadTrack(Number(row.dataset.track), true, searchResults || tracks);
+    });
+    document.querySelector('#album-grid').addEventListener('click', (event) => {
+      const card = event.target.closest('[data-track]');
+      if (card) loadTrack(Number(card.dataset.track), true, tracks);
+    });
+    document.querySelector('#artist-grid').addEventListener('click', (event) => {
+      const card = event.target.closest('[data-track]');
+      if (card) loadTrack(Number(card.dataset.track), true, tracks);
+    });
+    document.querySelector('#featured-play').addEventListener('click', () => loadTrack(0, true, tracks));
+    document.querySelector('#mix-button').addEventListener('click', () => loadTrack(Math.floor(Math.random() * tracks.length), true, tracks));
+    document.querySelector('#shuffle-button').addEventListener('click', () => loadTrack(Math.floor(Math.random() * tracks.length), true, tracks));
+    document.querySelector('#like-button').addEventListener('click', (event) => {
+      liked = !liked;
+      event.currentTarget.classList.toggle('text-lime', liked);
+      event.currentTarget.setAttribute('aria-label', liked ? 'Remove from liked songs' : 'Save to liked songs');
+      event.currentTarget.innerHTML = `<i data-lucide="heart" class="h-4 w-4 ${liked ? 'fill-current' : ''}"></i>`;
+      lucide.createIcons();
+    });
+    document.querySelector('#add-playlist').addEventListener('click', () => {
+      const name = window.prompt('Name your playlist');
+      if (!name || !name.trim()) return;
+      const playlist = document.createElement('button');
+      playlist.className = 'playlist-link flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-muted transition hover:bg-white/5 hover:text-paper';
+      playlist.innerHTML = '<i data-lucide="list-music" class="h-[18px] w-[18px]"></i>';
+      playlist.append(document.createTextNode(name.trim()));
+      document.querySelector('#playlist-nav').append(playlist);
+      lucide.createIcons();
+    });
+    document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach((item) => item.classList.remove('nav-active'));
+      document.querySelectorAll(`[data-view="${button.dataset.view}"]`).forEach((item) => item.classList.add('nav-active'));
+      if (button.dataset.view === 'search') searchInput.focus();
+      if (button.dataset.view === 'library') document.querySelector('#tracks-heading').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (button.dataset.view === 'home') document.querySelector('#main-content').scrollTo({ top: 0, behavior: 'smooth' });
+    }));
+    document.addEventListener('keydown', (event) => {
+      if (event.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+        event.preventDefault(); searchInput.focus();
+      }
+      if (event.code === 'Space' && !['INPUT', 'TEXTAREA', 'BUTTON'].includes(document.activeElement.tagName)) {
+        event.preventDefault(); togglePlayback();
+      }
+    });
+    lucide.createIcons();
+  </script>
+</body>
+</html>
